@@ -3,7 +3,7 @@
 // One fixed-size, little-endian frame of FT_FRAME_LEN bytes. Fields are
 // written byte by byte (no struct packing), so the encoding is identical on
 // every compiler and CPU. The same layout is documented in docs/protocol.md
-// and decoded in app/falcon_tracker/protocol.py -- keep the three in sync.
+// and the RX firmware prints it as JSON for the app -- keep them in sync.
 //
 //  off size field       unit / scale
 //  0   1    version     FT_VERSION
