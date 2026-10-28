@@ -1,13 +1,11 @@
 """Where reports come from: the RX board on a serial port, or a simulator.
 
 Every source is a generator of dicts shaped exactly like the JSON lines the RX
-firmware prints (see firmware/src/rx/main.cpp and docs/protocol.md). Both stop
-cleanly when their `stop` event is set.
+firmware prints (see firmware/src/rx/main.cpp and docs/protocol.md).
 """
 
 import json
 import math
-import threading
 import time
 
 ESPRESSIF_USB_VID = 0x303A  # ESP32-C3 built-in USB-Serial/JTAG
@@ -27,53 +25,46 @@ def parse_line(line):
     return msg
 
 
-def list_serial_ports():
-    from serial.tools import list_ports
-
-    return [{"device": p.device, "description": p.description,
-             "espressif": p.vid == ESPRESSIF_USB_VID} for p in list_ports.comports()]
-
-
 def find_serial_port():
     """Best guess at the RX board's port, or None."""
-    ports = list_serial_ports()
+    from serial.tools import list_ports
+
+    ports = list(list_ports.comports())
     for p in ports:
-        if p["espressif"]:
-            return p["device"]
-    return ports[0]["device"] if len(ports) == 1 else None
+        if p.vid == ESPRESSIF_USB_VID:
+            return p.device
+    return ports[0].device if len(ports) == 1 else None
 
 
-def serial_reports(port, baud=115200, stop=None, on_line=lambda line: None):
-    """Yield reports from the RX board, reconnecting if it is unplugged.
-
-    on_line gets every non-empty line (data, logs and errors) for the monitor.
-    """
+def serial_reports(port, baud=115200):
+    """Yield reports from the RX board forever, reconnecting if unplugged."""
     import serial
 
-    stop = stop or threading.Event()
-    while not stop.is_set():
+    while True:
         try:
             with serial.Serial(port, baud, timeout=1) as ser:
-                on_line(f"# connected to {port}")
-                while not stop.is_set():
-                    line = ser.readline().decode("utf-8", errors="replace").strip()
-                    if not line:
+                print(f"connected to {port}")
+                while True:
+                    raw = ser.readline()
+                    if not raw:
                         continue
-                    on_line(line)
+                    line = raw.decode("utf-8", errors="replace")
                     msg = parse_line(line)
-                    if msg is not None:
-                        yield msg
+                    if msg is None:
+                        if line.strip():
+                            print(f"[rx] {line.strip()}")
+                        continue
+                    yield msg
         except serial.SerialException as e:
-            on_line(f"# serial error on {port}: {e}; retrying in 2 s")
-            stop.wait(2)
+            print(f"serial error on {port}: {e}; retrying in 2 s")
+            time.sleep(2)
 
 
-def demo_reports(base_lat, base_lon, interval=1.0, falcons=2, stop=None):
+def demo_reports(base_lat, base_lon, interval=1.0, falcons=2):
     """Simulated falcons circling and diving around the base station."""
-    stop = stop or threading.Event()
     seq = 0
     t0 = time.time()
-    while not stop.is_set():
+    while True:
         t = time.time() - t0
         for i in range(falcons):
             fid = i + 1
@@ -100,4 +91,4 @@ def demo_reports(base_lat, base_lon, interval=1.0, falcons=2, stop=None):
                 "snr": round(9 - radius_m / 200, 2),
             }
         seq += 1
-        stop.wait(interval)
+        time.sleep(interval)

@@ -1,3 +1,3 @@
-"""Falcon Tracker: dashboard for LoRa GPS falcon tags."""
+"""Falcon Tracker: live map for LoRa GPS falcon tags."""
 
-__version__ = "1.1.0"
+__version__ = "1.0.0"

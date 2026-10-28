@@ -4,17 +4,6 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [1.1.0] - 2026-10-28
-
-### Added
-- Web dashboard in the style of the author's other projects: status card, tiles,
-  history charts, tracks, serial monitor, settings, guide, about, author, light/dark theme.
-- Connect/disconnect and demo from the page; lost-signal alert with optional beep.
-- `START_DASHBOARD.bat` and `START_DEMO.bat` for Windows.
-
-### Changed
-- The app no longer exits when no base station is found; it waits for Connect USB.
-
 ## [1.0.0] - 2026-10-28
 
 ### Added
