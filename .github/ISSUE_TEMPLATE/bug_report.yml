@@ -1,0 +1,32 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Part
+      options: [Falcon tag (TX), Base station (RX), Laptop app, Docs]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Serial log / app output
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+  - type: textarea
+    id: hw
+    attributes:
+      label: Hardware
+      description: Board variants, LoRa/GPS module, antennas, battery, OS

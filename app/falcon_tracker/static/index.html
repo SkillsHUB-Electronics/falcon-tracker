@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Falcon Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Falcon Tracker</h1>
+      <span id="link" class="pill">connecting…</span>
+    </header>
+    <div class="tools">
+      <button id="set-base" title="Then click on the map">Set base on map</button>
+      <button id="gps-base" title="Use this laptop's location">Base = my location</button>
+      <label><input type="checkbox" id="follow" checked> Follow selected</label>
+    </div>
+    <div id="base-info" class="muted">Base not set. Distance and bearing need it.</div>
+    <div id="falcons"><p class="muted">Waiting for the first packet…</p></div>
+    <footer>
+      <a href="/api/track.gpx">Download all tracks (GPX)</a>
+    </footer>
+  </aside>
+  <main id="map"></main>
+
+  <template id="card">
+    <section class="card">
+      <h2><span class="dot"></span><span class="name"></span><span class="age muted"></span></h2>
+      <dl>
+        <dt>Position</dt><dd class="pos"></dd>
+        <dt>Altitude</dt><dd class="alt"></dd>
+        <dt>Speed</dt><dd class="speed"></dd>
+        <dt>From base</dt><dd class="dist"></dd>
+        <dt>GPS</dt><dd class="gps"></dd>
+        <dt>Battery</dt><dd class="batt"></dd>
+        <dt>Link</dt><dd class="rf"></dd>
+      </dl>
+      <div class="row">
+        <button class="center">Center</button>
+        <a class="gpx" download>GPX</a>
+        <a class="nav" target="_blank" rel="noopener">Navigate</a>
+      </div>
+    </section>
+  </template>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

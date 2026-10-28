@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "falcon-tracker"
+version = "1.0.0"
+description = "Live map for LoRa GPS falcon tags (ESP32-C3 + SX1278 + ATGM336H)"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = ["pyserial>=3.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+falcon-tracker = "falcon_tracker.__main__:main"
+
+[tool.setuptools]
+packages = ["falcon_tracker"]
+
+[tool.setuptools.package-data]
+falcon_tracker = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
