@@ -1,9 +1,12 @@
 import itertools
 import json
 import threading
+import time
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
+from falcon_tracker.link import Link
 from falcon_tracker.server import Hub, serve
 from falcon_tracker.sources import demo_reports, parse_line
 from falcon_tracker.track import Tracks, to_gpx
@@ -45,22 +48,35 @@ def test_gpx_is_valid_xml():
     assert root.find(".//g:time", ns).text == "2026-10-28T00:00:00Z"
 
 
-def test_demo_reports_look_like_rx_output(monkeypatch):
-    monkeypatch.setattr("time.sleep", lambda s: None)
+def test_demo_reports_look_like_rx_output():
     keys = set(json.loads(RX_LINE))
-    for msg in itertools.islice(demo_reports(-6.2, 106.8), 6):
+    for msg in itertools.islice(demo_reports(-6.2, 106.8, interval=0), 6):
         assert set(msg) == keys
 
 
-def test_http_api_end_to_end():
+def _server():
     tracks, hub = Tracks(), Hub()
-    httpd = serve(tracks, hub, {"base": None, "demo": True}, port=0)
+    link = Link(tracks, hub)
+    httpd = serve(tracks, hub, link, {"base": None}, port=0)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    url = f"http://127.0.0.1:{httpd.server_address[1]}"
+    return tracks, link, httpd, f"http://127.0.0.1:{httpd.server_address[1]}"
+
+
+def _post(url, body, ctype="application/json"):
+    req = urllib.request.Request(url, json.dumps(body).encode(), {"Content-Type": ctype})
+    try:
+        return urllib.request.urlopen(req).status, None
+    except urllib.error.HTTPError as e:
+        return e.code, json.load(e)
+
+
+def test_http_api_end_to_end():
+    tracks, link, httpd, url = _server()
     try:
         tracks.add(parse_line(RX_LINE))
         state = json.load(urllib.request.urlopen(url + "/api/state"))
         assert state["tracks"]["1"][0]["seq"] == 42
+        assert state["status"]["mode"] == "idle"
         assert b"<trkpt" in urllib.request.urlopen(url + "/api/track.gpx?id=1").read()
         assert b"Falcon Tracker" in urllib.request.urlopen(url + "/").read()
         try:
@@ -68,5 +84,33 @@ def test_http_api_end_to_end():
             assert False, "path traversal must be refused"
         except urllib.error.HTTPError as e:
             assert e.code == 404
+    finally:
+        httpd.shutdown()
+
+
+def test_demo_connection_feeds_tracks_and_log():
+    tracks, link, httpd, url = _server()
+    try:
+        assert _post(url + "/api/connect", {"demo": True})[0] == 200
+        deadline = time.time() + 5
+        while len(tracks.snapshot()["latest"]) < 2 and time.time() < deadline:
+            time.sleep(0.05)
+        assert len(tracks.snapshot()["latest"]) == 2
+        assert link.status()["mode"] == "demo" and link.status()["packets"] >= 2
+        assert json.loads(link.log[-1]["line"])["id"] in (1, 2)
+        assert _post(url + "/api/disconnect", {})[0] == 200
+        assert link.status()["mode"] == "idle"
+        assert _post(url + "/api/clear", {})[0] == 200
+        assert tracks.snapshot()["latest"] == []
+    finally:
+        link.stop()
+        httpd.shutdown()
+
+
+def test_post_requires_json_and_known_port():
+    tracks, link, httpd, url = _server()
+    try:
+        assert _post(url + "/api/connect", {"demo": True}, "text/plain")[0] == 415
+        assert _post(url + "/api/connect", {"port": "/dev/not-a-port"})[0] == 404
     finally:
         httpd.shutdown()

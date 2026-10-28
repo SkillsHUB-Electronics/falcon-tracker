@@ -29,6 +29,7 @@ flowchart LR
 
 ## Features
 
+- **Web dashboard** in the same style as the author's other projects: status card (TRACKING / NO GPS FIX / LOW BATTERY / SIGNAL LOST), live map, battery, speed, altitude and signal charts, serial monitor, settings, guide.
 - **Live map** with satellite and street layers, one colour per falcon, heading arrow, track line.
 - **Distance and bearing** from the base station to each bird, plus a one-click "Navigate" link.
 - **Multiple falcons** on one receiver (each tag has its own `DEVICE_ID`).
@@ -36,6 +37,7 @@ flowchart LR
 - **Low power**: radio sleeps between packets, the MCU light-sleeps, and an optional MOSFET switches the GPS off for long intervals.
 - **Robust link**: SF9 LoRa with hardware CRC plus our own CRC-16, a fixed 30-byte binary frame (~280 ms on air).
 - **Logs everything** to CSV and exports GPX tracks for Google Earth, QGIS, Strava and friends.
+- **Lost-bird alarm**: optional beep when no packet arrives for a time you choose.
 - **Demo mode** that simulates two falcons, so you can try the app with no hardware.
 - **Tested**: protocol unit tests (C) and app tests (Python) run in CI on every push.
 
@@ -66,6 +68,7 @@ python -m falcon_tracker --demo
 ```
 
 Your browser opens at <http://localhost:8000> with two simulated falcons.
+On Windows you can also double-click `START_DEMO.bat` (or `START_DASHBOARD.bat` for the real thing).
 
 ### 2. Flash the boards
 
@@ -104,8 +107,9 @@ falcon-tracker/
 │   ├── src/rx/main.cpp      base station
 │   └── test/                protocol unit tests (pio test -e native)
 ├── app/                 Python laptop app (stdlib + pyserial)
-│   ├── falcon_tracker/      serial reader, track store, web server, map UI
+│   ├── falcon_tracker/      serial link, track store, web server, dashboard UI
 │   └── tests/
+├── START_DASHBOARD.bat  Windows launcher (START_DEMO.bat = simulator)
 ├── hardware/            wiring diagrams (SVG)
 ├── docs/                hardware, firmware, app, protocol, architecture, troubleshooting
 └── graphify-out/        knowledge graph of the codebase (see docs/architecture.md)

@@ -1,6 +1,6 @@
-"""Tiny web server: static map page, a JSON snapshot, GPX export and a
-Server-Sent Events stream that pushes every new report to the browser.
-Standard library only."""
+"""Tiny web server: the dashboard page, a JSON API, GPX export and a
+Server-Sent Events stream that pushes reports, log lines and status changes to
+the browser. Standard library only."""
 
 import json
 import queue
@@ -9,12 +9,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from . import sources
+
 STATIC = Path(__file__).parent / "static"
-TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
+TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml"}
 
 
 class Hub:
-    """Fan-out of new reports to every connected browser."""
+    """Fan-out of events (report, log, status) to every connected browser."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -30,16 +32,16 @@ class Hub:
         with self._lock:
             self._clients.discard(q)
 
-    def publish(self, msg):
+    def publish(self, kind, payload):
         with self._lock:
             for q in self._clients:
                 try:
-                    q.put_nowait(msg)
+                    q.put_nowait((kind, payload))
                 except queue.Full:
                     pass  # slow client; it will resync from /api/state on reconnect
 
 
-def make_handler(tracks, hub, config):
+def make_handler(tracks, hub, link, config):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass  # keep the console for radio traffic
@@ -55,11 +57,21 @@ def make_handler(tracks, hub, config):
             self.end_headers()
             self.wfile.write(data)
 
+        def _json(self, obj, status=200):
+            self._send(json.dumps(obj), "application/json", status)
+
         def do_GET(self):
             url = urlparse(self.path)
             if url.path == "/api/state":
-                state = dict(tracks.snapshot(), config=config)
-                return self._send(json.dumps(state), "application/json")
+                return self._json(dict(tracks.snapshot(), config=config, status=link.status()))
+            if url.path == "/api/ports":
+                try:
+                    return self._json({"ports": sources.list_serial_ports(),
+                                       "auto": sources.find_serial_port()})
+                except ImportError:
+                    return self._json({"error": "pyserial is not installed"}, 500)
+            if url.path == "/api/log":
+                return self._json(list(link.log))
             if url.path == "/api/track.gpx":
                 fid = parse_qs(url.query).get("id", [None])[0]
                 gpx = tracks.gpx(int(fid) if fid else None)
@@ -69,6 +81,40 @@ def make_handler(tracks, hub, config):
             if url.path == "/events":
                 return self._stream()
             return self._static(url.path)
+
+        def do_POST(self):
+            # Only JSON is accepted: a web page on another site cannot send that
+            # without a CORS preflight, which this server never grants.
+            if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
+                return self._json({"error": "expected application/json"}, 415)
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            except ValueError:
+                return self._json({"error": "bad JSON"}, 400)
+            path = urlparse(self.path).path
+            if path == "/api/connect":
+                return self._connect(body)
+            if path == "/api/disconnect":
+                link.stop()
+                return self._json(link.status())
+            if path == "/api/clear":
+                tracks.clear()
+                return self._json({"ok": True})
+            self._json({"error": "not found"}, 404)
+
+        def _connect(self, body):
+            if body.get("demo"):
+                link.start(demo=True)
+                return self._json(link.status())
+            try:
+                known = [p["device"] for p in sources.list_serial_ports()]
+            except ImportError:
+                return self._json({"error": "pyserial is not installed"}, 500)
+            port = body.get("port") or sources.find_serial_port()
+            if port not in known:
+                return self._json({"error": "no matching serial port; plug in the base station"}, 404)
+            link.start(port=port)
+            self._json(link.status())
 
         def _static(self, path):
             name = "index.html" if path in ("", "/") else path.lstrip("/")
@@ -86,8 +132,8 @@ def make_handler(tracks, hub, config):
             try:
                 while True:
                     try:
-                        msg = q.get(timeout=15)
-                        chunk = f"data: {json.dumps(msg)}\n\n"
+                        kind, payload = q.get(timeout=15)
+                        chunk = f"event: {kind}\ndata: {json.dumps(payload)}\n\n"
                     except queue.Empty:
                         chunk = ": keep-alive\n\n"
                     self.wfile.write(chunk.encode())
@@ -100,7 +146,7 @@ def make_handler(tracks, hub, config):
     return Handler
 
 
-def serve(tracks, hub, config, host="127.0.0.1", port=8000):
-    httpd = ThreadingHTTPServer((host, port), make_handler(tracks, hub, config))
+def serve(tracks, hub, link, config, host="127.0.0.1", port=8000):
+    httpd = ThreadingHTTPServer((host, port), make_handler(tracks, hub, link, config))
     httpd.daemon_threads = True
     return httpd

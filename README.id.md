@@ -22,6 +22,9 @@ python -m falcon_tracker --demo
 ```
 
 Browser akan membuka <http://localhost:8000> dengan dua falcon simulasi.
+Di Windows cukup klik dua kali `START_DEMO.bat` (atau `START_DASHBOARD.bat` untuk alat sungguhan).
+
+Dashboard punya kartu status (TRACKING / NO GPS FIX / LOW BATTERY / SIGNAL LOST), peta live, grafik baterai, kecepatan, ketinggian dan sinyal, serial monitor, pengaturan, dan panduan, dengan gaya yang sama seperti proyek Anda yang lain.
 
 ### 2. Flash firmware
 

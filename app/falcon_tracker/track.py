@@ -37,6 +37,11 @@ class Tracks:
                 self._log[0].flush()
         return msg
 
+    def clear(self):
+        with self._lock:
+            self._points.clear()
+            self._latest.clear()
+
     def snapshot(self):
         with self._lock:
             return {"latest": list(self._latest.values()),
